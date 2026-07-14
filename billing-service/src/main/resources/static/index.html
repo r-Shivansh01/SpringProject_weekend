@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MediFlow · Billing Service</title>
+<style>
+  :root{--accent:#d97706;--accent-dark:#b45309;--accent-light:#fffbeb;--bg:#fffdf7;--text:#291f0f;--muted:#8a7550;--card:#ffffff;--border:#fde68a;}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);}
+  header{background:linear-gradient(135deg,var(--accent),var(--accent-dark));color:#fff;padding:22px 32px;display:flex;align-items:center;gap:14px;box-shadow:0 2px 10px rgba(217,119,6,.25);}
+  header .icon{font-size:32px;}
+  header h1{margin:0;font-size:22px;font-weight:600;}
+  header p{margin:2px 0 0;font-size:13px;opacity:.9;}
+  main{max-width:1200px;margin:0 auto;padding:28px 20px 60px;}
+  .grid{display:grid;grid-template-columns:320px 1fr;gap:24px;align-items:start;}
+  @media (max-width:840px){.grid{grid-template-columns:1fr;}}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+  .card h2{margin:0 0 16px;font-size:16px;color:var(--accent-dark);}
+  label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin:12px 0 4px;}
+  input{width:100%;padding:9px 10px;border:1px solid #fde68a;border-radius:8px;font-size:14px;font-family:inherit;}
+  input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(217,119,6,.15);}
+  .btn{margin-top:18px;width:100%;padding:11px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;font-size:14px;cursor:pointer;}
+  .btn:hover{background:var(--accent-dark);}
+  .hint{font-size:11px;color:var(--muted);margin-top:4px;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{text-align:left;background:var(--accent-light);color:var(--accent-dark);padding:10px 12px;font-weight:600;}
+  td{padding:10px 12px;border-bottom:1px solid #fef7e0;vertical-align:top;}
+  tr:hover td{background:#fffdf7;}
+  .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;}
+  .PENDING{background:#fef3c7;color:#92400e;}
+  .PAID{background:#dcfce7;color:#166534;}
+  .CANCELLED{background:#fee2e2;color:#991b1b;}
+  .icon-btn{border:none;background:none;cursor:pointer;font-size:14px;padding:4px 7px;border-radius:6px;margin-right:2px;}
+  .icon-btn:hover{background:#fef7e0;}
+  .icon-btn.del:hover{background:#fee2e2;}
+  .empty{padding:30px;text-align:center;color:var(--muted);font-size:13px;}
+  .status-msg{margin-top:12px;font-size:13px;padding:10px 12px;border-radius:8px;display:none;}
+  .status-msg.err{background:#fee2e2;color:#991b1b;display:block;}
+  .status-msg.ok{background:#dcfce7;color:#166534;display:block;}
+  .table-wrap{overflow-x:auto;}
+  .count{color:var(--muted);font-size:12px;font-weight:500;}
+  .amt{font-weight:700;}
+</style>
+<script src="mediflow-nav.js"></script>
+</head>
+<body>
+<header>
+  <div class="icon">💳</div>
+  <div>
+    <h1>Billing Service</h1>
+    <p>MediFlow · Billing Management Microservice · port 8085</p>
+  </div>
+</header>
+<main>
+  <div class="grid">
+    <div class="card">
+      <h2>Generate Bill</h2>
+      <form id="billForm">
+        <label>Appointment ID</label>
+        <input type="number" id="appointmentId" required placeholder="1">
+        <div class="hint">Look up at localhost:8083/appointments</div>
+        <label>Additional charges (₹, optional)</label>
+        <input type="number" id="additionalCharges" min="0" step="0.01" placeholder="0.00">
+        <div class="hint">Consultation fee is pulled automatically from the doctor's record</div>
+        <button type="submit" class="btn">Generate Bill</button>
+      </form>
+      <div class="status-msg" id="statusMsg"></div>
+    </div>
+
+    <div class="card">
+      <h2 style="display:flex;justify-content:space-between;align-items:center;">
+        <span>Bills</span><span class="count" id="countLabel"></span>
+      </h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ID</th><th>Patient</th><th>Doctor</th><th>Fee</th><th>Extra</th><th>Total</th><th>Status</th><th></th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <div class="empty" id="emptyMsg" style="display:none">No bills yet. Generate one on the left.</div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+const API = '/bills';
+const form = document.getElementById('billForm');
+const rows = document.getElementById('rows');
+const statusMsg = document.getElementById('statusMsg');
+
+function showMsg(text, ok){
+  statusMsg.textContent = text;
+  statusMsg.className = 'status-msg ' + (ok ? 'ok' : 'err');
+  setTimeout(()=>{statusMsg.className='status-msg';}, 4000);
+}
+
+function money(v){ return v==null ? '—' : '₹'+Number(v).toFixed(2); }
+
+async function loadBills(){
+  try{
+    const res = await fetch(API);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+    document.getElementById('countLabel').textContent = data.length + (data.length===1?' bill':' bills');
+    document.getElementById('emptyMsg').style.display = data.length ? 'none':'block';
+    rows.innerHTML = data.map(b => `
+      <tr>
+        <td>${b.id}</td>
+        <td><strong>${b.patientName || '#'+b.patientId}</strong></td>
+        <td>${b.doctorName || '#'+b.doctorId}<br><span style="color:#8a7550">${b.doctorSpecialization||''}</span></td>
+        <td>${money(b.consultationFee)}</td>
+        <td>${money(b.additionalCharges)}</td>
+        <td class="amt">${money(b.totalAmount)}</td>
+        <td><span class="badge ${b.status}">${b.status}</span></td>
+        <td style="white-space:nowrap">
+          ${b.status==='PENDING' ? `<button class="icon-btn" title="Mark paid" onclick="payBill(${b.id})">✅</button>
+          <button class="icon-btn" title="Cancel" onclick="cancelBill(${b.id})">🚫</button>` : ''}
+          <button class="icon-btn del" title="Delete" onclick="deleteBill(${b.id})">🗑️</button>
+        </td>
+      </tr>`).join('');
+  }catch(e){
+    showMsg('Could not load bills — is billing-service running? ('+e.message+')', false);
+  }
+}
+
+form.addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const extra = document.getElementById('additionalCharges').value;
+  const payload = {
+    appointmentId: parseInt(document.getElementById('appointmentId').value),
+    additionalCharges: extra ? parseFloat(extra) : 0
+  };
+  try{
+    const res = await fetch(API, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    if(!res.ok){
+      const err = await res.json().catch(()=>({message:res.statusText}));
+      throw new Error(err.message || 'Bill generation failed');
+    }
+    showMsg('Bill generated', true);
+    form.reset();
+    loadBills();
+  }catch(e){ showMsg(e.message, false); }
+});
+
+async function payBill(id){
+  try{
+    const res = await fetch(`${API}/${id}/pay`, {method:'PUT'});
+    if(!res.ok) throw new Error('Payment failed');
+    showMsg('Bill #'+id+' marked as paid', true);
+    loadBills();
+  }catch(e){ showMsg(e.message, false); }
+}
+
+async function cancelBill(id){
+  if(!confirm('Cancel bill #'+id+'?')) return;
+  try{
+    const res = await fetch(`${API}/${id}/cancel`, {method:'PUT'});
+    if(!res.ok) throw new Error('Cancel failed');
+    showMsg('Bill #'+id+' cancelled', true);
+    loadBills();
+  }catch(e){ showMsg(e.message, false); }
+}
+
+async function deleteBill(id){
+  if(!confirm('Delete bill #'+id+'?')) return;
+  try{
+    const res = await fetch(`${API}/${id}`, {method:'DELETE'});
+    if(!res.ok) throw new Error('Delete failed');
+    showMsg('Bill deleted', true);
+    loadBills();
+  }catch(e){ showMsg(e.message, false); }
+}
+
+loadBills();
+</script>
+</body>
+</html>

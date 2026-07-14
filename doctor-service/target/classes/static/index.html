@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MediFlow · Doctor Service</title>
+<style>
+  :root{--accent:#7c3aed;--accent-dark:#6d28d9;--accent-light:#f5f3ff;--bg:#faf8ff;--text:#1e1b2e;--muted:#6b6580;--card:#ffffff;--border:#ede9fe;}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);}
+  header{background:linear-gradient(135deg,var(--accent),var(--accent-dark));color:#fff;padding:22px 32px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 10px rgba(124,58,237,.25);}
+  header .left{display:flex;align-items:center;gap:14px;}
+  header .icon{font-size:32px;}
+  header h1{margin:0;font-size:22px;font-weight:600;}
+  header p{margin:2px 0 0;font-size:13px;opacity:.9;}
+  .filters{display:flex;gap:8px;}
+  .filters select{padding:8px 10px;border-radius:8px;border:none;font-size:13px;}
+  main{max-width:1150px;margin:0 auto;padding:28px 20px 60px;}
+  .grid{display:grid;grid-template-columns:340px 1fr;gap:24px;align-items:start;}
+  @media (max-width:820px){.grid{grid-template-columns:1fr;}}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+  .card h2{margin:0 0 16px;font-size:16px;color:var(--accent-dark);}
+  label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin:12px 0 4px;}
+  input,select{width:100%;padding:9px 10px;border:1px solid #ddd6fe;border-radius:8px;font-size:14px;font-family:inherit;}
+  input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(124,58,237,.15);}
+  .checkrow{display:flex;align-items:center;gap:8px;margin-top:14px;}
+  .checkrow input{width:auto;}
+  .btn{margin-top:18px;width:100%;padding:11px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;font-size:14px;cursor:pointer;}
+  .btn:hover{background:var(--accent-dark);}
+  .btn-secondary{background:#ede9fe;color:#4c1d95;margin-top:8px;}
+  .btn-secondary:hover{background:#ddd6fe;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{text-align:left;background:var(--accent-light);color:var(--accent-dark);padding:10px 12px;font-weight:600;}
+  td{padding:10px 12px;border-bottom:1px solid #f4f2fb;}
+  tr:hover td{background:#fbfaff;}
+  .pill{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#ede9fe;color:#5b21b6;}
+  .avail-yes{color:#15803d;font-weight:700;}
+  .avail-no{color:#b91c1c;font-weight:700;}
+  .icon-btn{border:none;background:none;cursor:pointer;font-size:15px;padding:4px 6px;border-radius:6px;}
+  .icon-btn:hover{background:#f4f2fb;}
+  .icon-btn.del:hover{background:#fee2e2;}
+  .empty{padding:30px;text-align:center;color:var(--muted);font-size:13px;}
+  .status-msg{margin-top:12px;font-size:13px;padding:10px 12px;border-radius:8px;display:none;}
+  .status-msg.err{background:#fee2e2;color:#991b1b;display:block;}
+  .status-msg.ok{background:#dcfce7;color:#166534;display:block;}
+  .table-wrap{overflow-x:auto;}
+  .count{color:var(--muted);font-size:12px;font-weight:500;}
+</style>
+<script src="mediflow-nav.js"></script>
+</head>
+<body>
+<header>
+  <div class="left">
+    <div class="icon">🩺</div>
+    <div>
+      <h1>Doctor Service</h1>
+      <p>MediFlow · Doctor Management Microservice · port 8082</p>
+    </div>
+  </div>
+  <div class="filters">
+    <select id="filterAvail" onchange="loadDoctors()">
+      <option value="">All doctors</option>
+      <option value="available">Available only</option>
+    </select>
+  </div>
+</header>
+<main>
+  <div class="grid">
+    <div class="card">
+      <h2 id="formTitle">Add Doctor</h2>
+      <form id="doctorForm">
+        <input type="hidden" id="doctorId">
+        <label>Full name</label>
+        <input type="text" id="name" required placeholder="Dr. Amit Sharma">
+        <label>Email</label>
+        <input type="email" id="email" required placeholder="amit.sharma@mediflow.com">
+        <label>Phone</label>
+        <input type="text" id="phone" required placeholder="9876543201" pattern="[0-9]{10,15}">
+        <label>Specialization</label>
+        <input type="text" id="specialization" required placeholder="Cardiology">
+        <label>Consultation fee (₹)</label>
+        <input type="number" id="consultationFee" required min="0" step="0.01" placeholder="800">
+        <div class="checkrow">
+          <input type="checkbox" id="available" checked>
+          <label style="margin:0">Currently available</label>
+        </div>
+        <button type="submit" class="btn" id="submitBtn">Add Doctor</button>
+        <button type="button" class="btn btn-secondary" id="cancelEdit" style="display:none">Cancel Edit</button>
+      </form>
+      <div class="status-msg" id="statusMsg"></div>
+    </div>
+
+    <div class="card">
+      <h2 style="display:flex;justify-content:space-between;align-items:center;">
+        <span>Doctors</span><span class="count" id="countLabel"></span>
+      </h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ID</th><th>Name</th><th>Contact</th><th>Specialization</th><th>Fee</th><th>Status</th><th></th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <div class="empty" id="emptyMsg" style="display:none">No doctors yet. Add one on the left.</div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+const API = '/doctors';
+const form = document.getElementById('doctorForm');
+const rows = document.getElementById('rows');
+const statusMsg = document.getElementById('statusMsg');
+const cancelEdit = document.getElementById('cancelEdit');
+const submitBtn = document.getElementById('submitBtn');
+const formTitle = document.getElementById('formTitle');
+
+function showMsg(text, ok){
+  statusMsg.textContent = text;
+  statusMsg.className = 'status-msg ' + (ok ? 'ok' : 'err');
+  setTimeout(()=>{statusMsg.className='status-msg';}, 4000);
+}
+
+async function loadDoctors(){
+  const filter = document.getElementById('filterAvail').value;
+  const url = filter === 'available' ? `${API}/available` : API;
+  try{
+    const res = await fetch(url);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+    document.getElementById('countLabel').textContent = data.length + (data.length===1?' doctor':' doctors');
+    document.getElementById('emptyMsg').style.display = data.length ? 'none':'block';
+    rows.innerHTML = data.map(d => `
+      <tr>
+        <td>${d.id}</td>
+        <td><strong>${d.name}</strong></td>
+        <td>${d.email}<br><span style="color:#6b6580">${d.phone}</span></td>
+        <td><span class="pill">${d.specialization}</span></td>
+        <td>₹${Number(d.consultationFee).toFixed(2)}</td>
+        <td class="${d.available?'avail-yes':'avail-no'}">${d.available?'● Available':'● Unavailable'}</td>
+        <td style="white-space:nowrap">
+          <button class="icon-btn" title="Edit" onclick='editDoctor(${JSON.stringify(d)})'>✏️</button>
+          <button class="icon-btn del" title="Delete" onclick="deleteDoctor(${d.id})">🗑️</button>
+        </td>
+      </tr>`).join('');
+  }catch(e){
+    showMsg('Could not load doctors — is doctor-service running? ('+e.message+')', false);
+  }
+}
+
+form.addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const id = document.getElementById('doctorId').value;
+  const payload = {
+    name: document.getElementById('name').value,
+    email: document.getElementById('email').value,
+    phone: document.getElementById('phone').value,
+    specialization: document.getElementById('specialization').value,
+    consultationFee: parseFloat(document.getElementById('consultationFee').value),
+    available: document.getElementById('available').checked
+  };
+  try{
+    const res = await fetch(id ? `${API}/${id}` : API, {
+      method: id ? 'PUT' : 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    if(!res.ok){
+      const err = await res.json().catch(()=>({message:res.statusText}));
+      throw new Error(err.message || 'Request failed');
+    }
+    showMsg(id ? 'Doctor updated' : 'Doctor added', true);
+    resetForm();
+    loadDoctors();
+  }catch(e){ showMsg(e.message, false); }
+});
+
+function editDoctor(d){
+  document.getElementById('doctorId').value = d.id;
+  document.getElementById('name').value = d.name;
+  document.getElementById('email').value = d.email;
+  document.getElementById('phone').value = d.phone;
+  document.getElementById('specialization').value = d.specialization;
+  document.getElementById('consultationFee').value = d.consultationFee;
+  document.getElementById('available').checked = d.available;
+  formTitle.textContent = 'Edit Doctor #' + d.id;
+  submitBtn.textContent = 'Save Changes';
+  cancelEdit.style.display = 'block';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function resetForm(){
+  form.reset();
+  document.getElementById('doctorId').value = '';
+  document.getElementById('available').checked = true;
+  formTitle.textContent = 'Add Doctor';
+  submitBtn.textContent = 'Add Doctor';
+  cancelEdit.style.display = 'none';
+}
+cancelEdit.addEventListener('click', resetForm);
+
+async function deleteDoctor(id){
+  if(!confirm('Delete doctor #'+id+'?')) return;
+  try{
+    const res = await fetch(`${API}/${id}`, {method:'DELETE'});
+    if(!res.ok) throw new Error('Delete failed');
+    showMsg('Doctor deleted', true);
+    loadDoctors();
+  }catch(e){ showMsg(e.message, false); }
+}
+
+loadDoctors();
+</script>
+</body>
+</html>

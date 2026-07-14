@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MediFlow · API Gateway</title>
+<style>
+  :root{--accent:#334155;--accent-dark:#1e293b;--accent-light:#f1f5f9;--bg:#f8fafc;--text:#0f172a;--muted:#64748b;--danger:#dc2626;--card:#ffffff;--border:#e2e8f0;--ok:#16a34a;}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);}
+  header{background:linear-gradient(135deg,var(--accent),var(--accent-dark));color:#fff;padding:22px 32px;display:flex;align-items:center;gap:14px;box-shadow:0 2px 10px rgba(30,41,59,.25);}
+  header .icon{font-size:32px;}
+  header h1{margin:0;font-size:22px;font-weight:600;}
+  header p{margin:2px 0 0;font-size:13px;opacity:.9;}
+  main{max-width:1150px;margin:0 auto;padding:28px 20px 60px;}
+  .grid{display:grid;grid-template-columns:340px 1fr;gap:24px;align-items:start;}
+  @media (max-width:860px){.grid{grid-template-columns:1fr;}}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+  .card h2{margin:0 0 16px;font-size:16px;color:var(--accent-dark);}
+  label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin:12px 0 4px;}
+  input,select{width:100%;padding:9px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;font-family:inherit;}
+  input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(51,65,85,.15);}
+  .btn{margin-top:18px;width:100%;padding:11px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;font-size:14px;cursor:pointer;transition:.15s;}
+  .btn:hover{background:var(--accent-dark);}
+  .btn-secondary{background:#e2e8f0;color:#334155;margin-top:8px;}
+  .btn-secondary:hover{background:#cbd5e1;}
+  .btn-small{margin-top:0;width:auto;padding:6px 12px;font-size:12px;}
+  .hint{margin-top:14px;font-size:11.5px;color:var(--muted);background:var(--accent-light);border-radius:8px;padding:10px 12px;line-height:1.5;}
+  .hint b{color:var(--accent-dark);}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{text-align:left;background:var(--accent-light);color:var(--accent-dark);padding:10px 12px;font-weight:600;}
+  td{padding:10px 12px;border-bottom:1px solid #f1f5f9;vertical-align:middle;}
+  tr:hover td{background:#fafbfc;}
+  .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;}
+  .badge-protected{background:#fef3c7;color:#92400e;}
+  .badge-public{background:#dcfce7;color:#166534;}
+  .badge-ok{background:#dcfce7;color:#166534;}
+  .badge-fail{background:#fee2e2;color:#991b1b;}
+  .badge-pending{background:#e2e8f0;color:#475569;}
+  a.link{color:var(--accent-dark);text-decoration:none;font-weight:600;}
+  a.link:hover{text-decoration:underline;}
+  .status-msg{margin-top:12px;font-size:13px;padding:10px 12px;border-radius:8px;display:none;}
+  .status-msg.err{background:#fee2e2;color:#991b1b;display:block;}
+  .status-msg.ok{background:#dcfce7;color:#166534;display:block;}
+  .table-wrap{overflow-x:auto;}
+  .session-box{display:none;text-align:center;}
+  .session-box.active{display:block;}
+  .session-avatar{width:56px;height:56px;border-radius:50%;background:var(--accent-light);color:var(--accent-dark);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;margin:0 auto 12px;}
+  .session-name{font-weight:600;font-size:15px;}
+  .session-email{color:var(--muted);font-size:13px;margin-top:2px;}
+  .token-box{margin-top:14px;text-align:left;background:#0f172a;color:#94a3b8;font-family:'Consolas',monospace;font-size:11px;padding:10px;border-radius:8px;word-break:break-all;max-height:70px;overflow-y:auto;}
+  code{background:var(--accent-light);padding:1px 6px;border-radius:5px;font-size:12px;}
+</style>
+<script src="mediflow-nav.js"></script>
+</head>
+<body>
+<header>
+  <div class="icon">🛡️</div>
+  <div>
+    <h1>API Gateway</h1>
+    <p>MediFlow · Single Entry Point · port 8080 · routes to all 7 services via Eureka</p>
+  </div>
+</header>
+<main>
+  <div class="grid">
+    <div class="card">
+      <div id="loginBox">
+        <h2>Sign In</h2>
+        <form id="loginForm">
+          <label>Email</label>
+          <input type="email" id="loginEmail" required placeholder="admin@mediflow.com">
+          <label>Password</label>
+          <input type="password" id="loginPassword" required placeholder="••••••••">
+          <button type="submit" class="btn">Sign In via Gateway</button>
+        </form>
+        <div class="hint">
+          This form posts to <code>/auth/login</code> on the gateway (port 8080), which
+          forwards it to <b>auth-service</b> untouched. Demo accounts:<br>
+          <b>admin@mediflow.com</b> / admin123<br>
+          <b>ananya.gupta@mediflow.com</b> / doctor123<br>
+          <b>rahul@example.com</b> / patient123
+        </div>
+      </div>
+
+      <div class="session-box" id="sessionBox">
+        <div class="session-avatar" id="sessionAvatar">?</div>
+        <div class="session-name" id="sessionName"></div>
+        <div class="session-email" id="sessionEmail"></div>
+        <div class="token-box" id="tokenBox"></div>
+        <div class="hint">
+          This token is now attached as <code>Authorization: Bearer …</code> to every
+          "Test" request on the right, which the gateway checks against
+          <code>POST /auth/validate</code> before forwarding.
+        </div>
+        <button type="button" class="btn btn-secondary" id="logoutBtn">Log Out</button>
+      </div>
+
+      <div class="status-msg" id="statusMsg"></div>
+    </div>
+
+    <div class="card">
+      <h2>Service Directory</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Service</th><th>Gateway path</th><th>Direct UI</th><th>Access</th><th>Test</th><th>Result</th></tr></thead>
+          <tbody id="serviceRows"></tbody>
+        </table>
+      </div>
+      <div class="hint">
+        <b>Test</b> sends <code>GET &lt;gateway path&gt;</code> through the gateway (port 8080).
+        Protected services return <b>401</b> without a token and <b>200</b> once you're signed in on the left.
+        <code>/auth</code> is public — it always succeeds since auth-service manages its own endpoints.
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+let currentToken = null;
+
+const services = [
+  {name:'Patient Service',   path:'/patients',      port:8081, protected:true},
+  {name:'Doctor Service',    path:'/doctors',        port:8082, protected:true},
+  {name:'Appointment Service',path:'/appointments',  port:8083, protected:true},
+  {name:'Prescription Service',path:'/prescriptions',port:8084, protected:true},
+  {name:'Billing Service',  path:'/bills',           port:8085, protected:true},
+  {name:'Notification Service',path:'/notifications',port:8086, protected:true},
+  {name:'Auth Service',     path:'/auth/users',      port:8087, protected:false},
+];
+
+const serviceRows = document.getElementById('serviceRows');
+const statusMsg = document.getElementById('statusMsg');
+const loginBox = document.getElementById('loginBox');
+const sessionBox = document.getElementById('sessionBox');
+
+function showMsg(text, ok){
+  statusMsg.textContent = text;
+  statusMsg.className = 'status-msg ' + (ok ? 'ok' : 'err');
+  setTimeout(()=>{statusMsg.className='status-msg';}, 4000);
+}
+
+function renderServices(){
+  serviceRows.innerHTML = services.map((s, i) => `
+    <tr>
+      <td><strong>${s.name}</strong></td>
+      <td><code>${s.path}</code></td>
+      <td><a class="link" href="http://localhost:${s.port}/" target="_blank">localhost:${s.port} ↗</a></td>
+      <td><span class="badge ${s.protected ? 'badge-protected' : 'badge-public'}">${s.protected ? 'Protected' : 'Public'}</span></td>
+      <td><button class="btn btn-secondary btn-small" onclick="testService(${i})">Test</button></td>
+      <td id="result-${i}"><span class="badge badge-pending">not tested</span></td>
+    </tr>`).join('');
+}
+renderServices();
+
+async function testService(i){
+  const s = services[i];
+  const resultCell = document.getElementById('result-' + i);
+  resultCell.innerHTML = '<span class="badge badge-pending">testing…</span>';
+  try{
+    const headers = {};
+    if(currentToken) headers['Authorization'] = 'Bearer ' + currentToken;
+    const res = await fetch(s.path, {headers});
+    if(res.ok){
+      resultCell.innerHTML = `<span class="badge badge-ok">${res.status} OK</span>`;
+    } else {
+      resultCell.innerHTML = `<span class="badge badge-fail">${res.status}</span>`;
+    }
+  }catch(e){
+    resultCell.innerHTML = `<span class="badge badge-fail">error</span>`;
+  }
+}
+
+document.getElementById('loginForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const payload = {
+    email: document.getElementById('loginEmail').value,
+    password: document.getElementById('loginPassword').value
+  };
+  try{
+    const res = await fetch('/auth/login', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    if(!res.ok){
+      const err = await res.json().catch(()=>({message:res.statusText}));
+      throw new Error(err.message || 'Login failed');
+    }
+    const data = await res.json();
+    currentToken = data.token;
+    MediFlowAuth.setSession(data.token, data.user);
+    loginBox.style.display = 'none';
+    sessionBox.classList.add('active');
+    document.getElementById('sessionAvatar').textContent = (data.user.fullName||'?').charAt(0).toUpperCase();
+    document.getElementById('sessionName').textContent = data.user.fullName;
+    document.getElementById('sessionEmail').textContent = data.user.email + ' · ' + data.user.role;
+    document.getElementById('tokenBox').textContent = data.token;
+    showMsg('Signed in — token attached to Test requests, and to the nav bar above for every other service', true);
+  }catch(e){ showMsg(e.message, false); }
+});
+
+document.getElementById('logoutBtn').addEventListener('click', ()=>{
+  currentToken = null;
+  MediFlowAuth.clearSession();
+  loginBox.style.display = 'block';
+  sessionBox.classList.remove('active');
+  document.getElementById('loginForm').reset();
+  showMsg('Logged out — Test requests will no longer send a token', true);
+});
+
+// If this page was opened already logged in (e.g. via nav bar from another
+// service, or a page refresh), restore the session box from localStorage.
+(function restoreSession(){
+  const t = MediFlowAuth.getToken();
+  const u = MediFlowAuth.getUser();
+  if(t && u){
+    currentToken = t;
+    loginBox.style.display = 'none';
+    sessionBox.classList.add('active');
+    document.getElementById('sessionAvatar').textContent = (u.fullName||'?').charAt(0).toUpperCase();
+    document.getElementById('sessionName').textContent = u.fullName;
+    document.getElementById('sessionEmail').textContent = u.email + ' · ' + u.role;
+    document.getElementById('tokenBox').textContent = t;
+  }
+})();
+</script>
+</body>
+</html>

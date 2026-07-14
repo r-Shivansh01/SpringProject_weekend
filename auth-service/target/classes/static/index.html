@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MediFlow · Auth Service</title>
+<style>
+  :root{--accent:#4f46e5;--accent-dark:#4338ca;--accent-light:#eef2ff;--bg:#f5f6ff;--text:#0f172a;--muted:#64748b;--danger:#dc2626;--card:#ffffff;--border:#e0e7ff;}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);}
+  header{background:linear-gradient(135deg,var(--accent),var(--accent-dark));color:#fff;padding:22px 32px;display:flex;align-items:center;gap:14px;box-shadow:0 2px 10px rgba(79,70,229,.25);}
+  header .icon{font-size:32px;}
+  header h1{margin:0;font-size:22px;font-weight:600;}
+  header p{margin:2px 0 0;font-size:13px;opacity:.9;}
+  main{max-width:1100px;margin:0 auto;padding:28px 20px 60px;}
+  .grid{display:grid;grid-template-columns:360px 1fr;gap:24px;align-items:start;}
+  @media (max-width:820px){.grid{grid-template-columns:1fr;}}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+  .card h2{margin:0 0 16px;font-size:16px;color:var(--accent-dark);}
+  .tabs{display:flex;gap:4px;background:var(--accent-light);border-radius:10px;padding:4px;margin-bottom:18px;}
+  .tab{flex:1;text-align:center;padding:9px 0;border-radius:8px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;user-select:none;}
+  .tab.active{background:var(--card);color:var(--accent-dark);box-shadow:0 1px 3px rgba(0,0,0,.08);}
+  label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin:12px 0 4px;}
+  input,select,textarea{width:100%;padding:9px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;font-family:inherit;}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,70,229,.15);}
+  .btn{margin-top:18px;width:100%;padding:11px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;font-size:14px;cursor:pointer;transition:.15s;}
+  .btn:hover{background:var(--accent-dark);}
+  .btn-secondary{background:#e2e8f0;color:#334155;margin-top:8px;}
+  .btn-secondary:hover{background:#cbd5e1;}
+  .hint{margin-top:14px;font-size:11.5px;color:var(--muted);background:var(--accent-light);border-radius:8px;padding:10px 12px;line-height:1.5;}
+  .hint b{color:var(--accent-dark);}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{text-align:left;background:var(--accent-light);color:var(--accent-dark);padding:10px 12px;font-weight:600;position:sticky;top:0;}
+  td{padding:10px 12px;border-bottom:1px solid #f1f5f9;}
+  tr:hover td{background:#fafaff;}
+  .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;}
+  .badge-admin{background:#fee2e2;color:#991b1b;}
+  .badge-doctor{background:#ede9fe;color:#5b21b6;}
+  .badge-patient{background:#dbeafe;color:#1e40af;}
+  .badge-staff{background:#dcfce7;color:#166534;}
+  .icon-btn{border:none;background:none;cursor:pointer;font-size:15px;padding:4px 6px;border-radius:6px;}
+  .icon-btn:hover{background:#f1f5f9;}
+  .icon-btn.del:hover{background:#fee2e2;}
+  .empty{padding:30px;text-align:center;color:var(--muted);font-size:13px;}
+  .status-msg{margin-top:12px;font-size:13px;padding:10px 12px;border-radius:8px;display:none;}
+  .status-msg.err{background:#fee2e2;color:#991b1b;display:block;}
+  .status-msg.ok{background:#dcfce7;color:#166534;display:block;}
+  .table-wrap{overflow-x:auto;}
+  .count{color:var(--muted);font-size:12px;font-weight:500;}
+  .session-box{display:none;text-align:center;}
+  .session-box.active{display:block;}
+  .session-avatar{width:56px;height:56px;border-radius:50%;background:var(--accent-light);color:var(--accent-dark);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;margin:0 auto 12px;}
+  .session-name{font-weight:600;font-size:15px;}
+  .session-email{color:var(--muted);font-size:13px;margin-top:2px;}
+  .token-box{margin-top:14px;text-align:left;background:#0f172a;color:#a5b4fc;font-family:'Consolas',monospace;font-size:11px;padding:10px;border-radius:8px;word-break:break-all;max-height:80px;overflow-y:auto;}
+</style>
+<script src="mediflow-nav.js"></script>
+</head>
+<body>
+<header>
+  <div class="icon">🔐</div>
+  <div>
+    <h1>Auth Service</h1>
+    <p>MediFlow · Authentication &amp; Login Microservice · port 8087</p>
+  </div>
+</header>
+<main>
+  <div class="grid">
+    <div class="card">
+      <div id="authTabs">
+        <div class="tabs">
+          <div class="tab active" data-tab="login">Login</div>
+          <div class="tab" data-tab="register">Register</div>
+        </div>
+
+        <form id="loginForm">
+          <label>Email</label>
+          <input type="email" id="loginEmail" required placeholder="admin@mediflow.com">
+          <label>Password</label>
+          <input type="password" id="loginPassword" required placeholder="••••••••">
+          <button type="submit" class="btn">Sign In</button>
+          <div class="hint">
+            Demo accounts (seeded on first run):<br>
+            <b>admin@mediflow.com</b> / admin123 (ADMIN)<br>
+            <b>ananya.gupta@mediflow.com</b> / doctor123 (DOCTOR)<br>
+            <b>rahul@example.com</b> / patient123 (PATIENT)
+          </div>
+        </form>
+
+        <form id="registerForm" style="display:none">
+          <label>Full name</label>
+          <input type="text" id="regName" required placeholder="Priya Verma">
+          <label>Email</label>
+          <input type="email" id="regEmail" required placeholder="priya@example.com">
+          <label>Password</label>
+          <input type="password" id="regPassword" required minlength="6" placeholder="At least 6 characters">
+          <label>Role</label>
+          <select id="regRole" required>
+            <option value="">Select...</option>
+            <option value="PATIENT">Patient</option>
+            <option value="DOCTOR">Doctor</option>
+            <option value="STAFF">Staff</option>
+            <option value="ADMIN">Admin</option>
+          </select>
+          <button type="submit" class="btn">Create Account</button>
+        </form>
+      </div>
+
+      <div class="session-box" id="sessionBox">
+        <div class="session-avatar" id="sessionAvatar">?</div>
+        <div class="session-name" id="sessionName"></div>
+        <div class="session-email" id="sessionEmail"></div>
+        <div style="margin-top:6px" id="sessionRoleBadge"></div>
+        <div class="token-box" id="tokenBox"></div>
+        <button type="button" class="btn btn-secondary" id="logoutBtn">Log Out</button>
+      </div>
+
+      <div class="status-msg" id="statusMsg"></div>
+    </div>
+
+    <div class="card">
+      <h2 style="display:flex;justify-content:space-between;align-items:center;">
+        <span>Registered Users</span><span class="count" id="countLabel"></span>
+      </h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Role</th><th>Joined</th><th></th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <div class="empty" id="emptyMsg" style="display:none">No users yet. Register on the left.</div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+const API = '/auth';
+const statusMsg = document.getElementById('statusMsg');
+const rows = document.getElementById('rows');
+const sessionBox = document.getElementById('sessionBox');
+const authTabs = document.getElementById('authTabs');
+const loginForm = document.getElementById('loginForm');
+const registerForm = document.getElementById('registerForm');
+
+function showMsg(text, ok){
+  statusMsg.textContent = text;
+  statusMsg.className = 'status-msg ' + (ok ? 'ok' : 'err');
+  setTimeout(()=>{statusMsg.className='status-msg';}, 4000);
+}
+
+function roleBadge(role){
+  const map = {ADMIN:'badge-admin', DOCTOR:'badge-doctor', PATIENT:'badge-patient', STAFF:'badge-staff'};
+  const cls = map[role] || 'badge-patient';
+  return `<span class="badge ${cls}">${role||'—'}</span>`;
+}
+
+document.querySelectorAll('.tab').forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');
+    const isLogin = tab.dataset.tab === 'login';
+    loginForm.style.display = isLogin ? 'block' : 'none';
+    registerForm.style.display = isLogin ? 'none' : 'block';
+  });
+});
+
+async function loadUsers(){
+  try{
+    const res = await fetch(API + '/users');
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+    document.getElementById('countLabel').textContent = data.length + (data.length===1?' user':' users');
+    document.getElementById('emptyMsg').style.display = data.length ? 'none':'block';
+    rows.innerHTML = data.map(u => `
+      <tr>
+        <td>${u.id}</td>
+        <td><strong>${u.fullName}</strong></td>
+        <td>${u.email}</td>
+        <td>${roleBadge(u.role)}</td>
+        <td>${(u.createdAt||'').toString().replace('T',' ').slice(0,16)}</td>
+        <td style="white-space:nowrap">
+          <button class="icon-btn del" title="Delete" onclick="deleteUser(${u.id})">🗑️</button>
+        </td>
+      </tr>`).join('');
+  }catch(e){
+    showMsg('Could not load users — is auth-service running? ('+e.message+')', false);
+  }
+}
+
+loginForm.addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const payload = {
+    email: document.getElementById('loginEmail').value,
+    password: document.getElementById('loginPassword').value
+  };
+  try{
+    const res = await fetch(`${API}/login`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    if(!res.ok){
+      const err = await res.json().catch(()=>({message:res.statusText}));
+      throw new Error(err.message || 'Login failed');
+    }
+    const data = await res.json();
+    showSession(data);
+    showMsg('Signed in as ' + data.user.email, true);
+  }catch(e){ showMsg(e.message, false); }
+});
+
+registerForm.addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const payload = {
+    fullName: document.getElementById('regName').value,
+    email: document.getElementById('regEmail').value,
+    password: document.getElementById('regPassword').value,
+    role: document.getElementById('regRole').value
+  };
+  try{
+    const res = await fetch(`${API}/register`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    if(!res.ok){
+      const err = await res.json().catch(()=>({message:res.statusText}));
+      throw new Error(err.message || 'Registration failed');
+    }
+    showMsg('Account created — you can now sign in', true);
+    registerForm.reset();
+    document.querySelector('.tab[data-tab="login"]').click();
+    loadUsers();
+  }catch(e){ showMsg(e.message, false); }
+});
+
+function showSession(auth){
+  authTabs.style.display = 'none';
+  sessionBox.classList.add('active');
+  const u = auth.user;
+  document.getElementById('sessionAvatar').textContent = (u.fullName||'?').charAt(0).toUpperCase();
+  document.getElementById('sessionName').textContent = u.fullName;
+  document.getElementById('sessionEmail').textContent = u.email;
+  document.getElementById('sessionRoleBadge').innerHTML = roleBadge(u.role);
+  document.getElementById('tokenBox').textContent = auth.token;
+}
+
+document.getElementById('logoutBtn').addEventListener('click', ()=>{
+  authTabs.style.display = 'block';
+  sessionBox.classList.remove('active');
+  loginForm.reset();
+  showMsg('Logged out', true);
+});
+
+async function deleteUser(id){
+  if(!confirm('Delete user #'+id+'?')) return;
+  try{
+    const res = await fetch(`${API}/users/${id}`, {method:'DELETE'});
+    if(!res.ok) throw new Error('Delete failed');
+    showMsg('User deleted', true);
+    loadUsers();
+  }catch(e){ showMsg(e.message, false); }
+}
+
+loadUsers();
+</script>
+</body>
+</html>

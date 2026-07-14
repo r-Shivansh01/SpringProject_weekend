@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MediFlow · Patient Service</title>
+<style>
+  :root{--accent:#0891b2;--accent-dark:#0e7490;--accent-light:#ecfeff;--bg:#f0fdfa;--text:#0f172a;--muted:#64748b;--danger:#dc2626;--card:#ffffff;--border:#cffafe;}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);}
+  header{background:linear-gradient(135deg,var(--accent),var(--accent-dark));color:#fff;padding:22px 32px;display:flex;align-items:center;gap:14px;box-shadow:0 2px 10px rgba(8,145,178,.25);}
+  header .icon{font-size:32px;}
+  header h1{margin:0;font-size:22px;font-weight:600;}
+  header p{margin:2px 0 0;font-size:13px;opacity:.9;}
+  main{max-width:1100px;margin:0 auto;padding:28px 20px 60px;}
+  .grid{display:grid;grid-template-columns:340px 1fr;gap:24px;align-items:start;}
+  @media (max-width:820px){.grid{grid-template-columns:1fr;}}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+  .card h2{margin:0 0 16px;font-size:16px;color:var(--accent-dark);}
+  label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin:12px 0 4px;}
+  input,select,textarea{width:100%;padding:9px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;font-family:inherit;}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(8,145,178,.15);}
+  .btn{margin-top:18px;width:100%;padding:11px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;font-size:14px;cursor:pointer;transition:.15s;}
+  .btn:hover{background:var(--accent-dark);}
+  .btn-secondary{background:#e2e8f0;color:#334155;margin-top:8px;}
+  .btn-secondary:hover{background:#cbd5e1;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{text-align:left;background:var(--accent-light);color:var(--accent-dark);padding:10px 12px;font-weight:600;position:sticky;top:0;}
+  td{padding:10px 12px;border-bottom:1px solid #f1f5f9;}
+  tr:hover td{background:#f8fffe;}
+  .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;}
+  .badge-m{background:#dbeafe;color:#1e40af;}
+  .badge-f{background:#fce7f3;color:#9d174d;}
+  .badge-o{background:#e2e8f0;color:#334155;}
+  .icon-btn{border:none;background:none;cursor:pointer;font-size:15px;padding:4px 6px;border-radius:6px;}
+  .icon-btn:hover{background:#f1f5f9;}
+  .icon-btn.del:hover{background:#fee2e2;}
+  .empty{padding:30px;text-align:center;color:var(--muted);font-size:13px;}
+  .status-msg{margin-top:12px;font-size:13px;padding:10px 12px;border-radius:8px;display:none;}
+  .status-msg.err{background:#fee2e2;color:#991b1b;display:block;}
+  .status-msg.ok{background:#dcfce7;color:#166534;display:block;}
+  .table-wrap{overflow-x:auto;}
+  .count{color:var(--muted);font-size:12px;font-weight:500;}
+</style>
+<script src="mediflow-nav.js"></script>
+</head>
+<body>
+<header>
+  <div class="icon">🏥</div>
+  <div>
+    <h1>Patient Service</h1>
+    <p>MediFlow · Patient Management Microservice · port 8081</p>
+  </div>
+</header>
+<main>
+  <div class="grid">
+    <div class="card">
+      <h2 id="formTitle">Add Patient</h2>
+      <form id="patientForm">
+        <input type="hidden" id="patientId">
+        <label>Full name</label>
+        <input type="text" id="name" required placeholder="Rahul Sharma">
+        <label>Email</label>
+        <input type="email" id="email" required placeholder="rahul@example.com">
+        <label>Phone</label>
+        <input type="text" id="phone" required placeholder="9876543210" pattern="[0-9]{10,15}">
+        <label>Gender</label>
+        <select id="gender" required>
+          <option value="">Select...</option>
+          <option>Male</option><option>Female</option><option>Other</option>
+        </select>
+        <label>Age</label>
+        <input type="number" id="age" required min="0" max="150">
+        <label>Address</label>
+        <textarea id="address" rows="2" required placeholder="Punjab, India"></textarea>
+        <button type="submit" class="btn" id="submitBtn">Add Patient</button>
+        <button type="button" class="btn btn-secondary" id="cancelEdit" style="display:none">Cancel Edit</button>
+      </form>
+      <div class="status-msg" id="statusMsg"></div>
+    </div>
+
+    <div class="card">
+      <h2 style="display:flex;justify-content:space-between;align-items:center;">
+        <span>Patients</span><span class="count" id="countLabel"></span>
+      </h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ID</th><th>Name</th><th>Contact</th><th>Gender</th><th>Age</th><th>Address</th><th></th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <div class="empty" id="emptyMsg" style="display:none">No patients yet. Add one on the left.</div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+const API = '/patients';
+const form = document.getElementById('patientForm');
+const rows = document.getElementById('rows');
+const statusMsg = document.getElementById('statusMsg');
+const cancelEdit = document.getElementById('cancelEdit');
+const submitBtn = document.getElementById('submitBtn');
+const formTitle = document.getElementById('formTitle');
+
+function showMsg(text, ok){
+  statusMsg.textContent = text;
+  statusMsg.className = 'status-msg ' + (ok ? 'ok' : 'err');
+  setTimeout(()=>{statusMsg.className='status-msg';}, 4000);
+}
+
+function genderBadge(g){
+  const cls = g==='Male'?'badge-m':g==='Female'?'badge-f':'badge-o';
+  return `<span class="badge ${cls}">${g||'—'}</span>`;
+}
+
+async function loadPatients(){
+  try{
+    const res = await fetch(API);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+    document.getElementById('countLabel').textContent = data.length + (data.length===1?' patient':' patients');
+    document.getElementById('emptyMsg').style.display = data.length ? 'none':'block';
+    rows.innerHTML = data.map(p => `
+      <tr>
+        <td>${p.id}</td>
+        <td><strong>${p.name}</strong></td>
+        <td>${p.email}<br><span style="color:#64748b">${p.phone}</span></td>
+        <td>${genderBadge(p.gender)}</td>
+        <td>${p.age}</td>
+        <td>${p.address}</td>
+        <td style="white-space:nowrap">
+          <button class="icon-btn" title="Edit" onclick='editPatient(${JSON.stringify(p)})'>✏️</button>
+          <button class="icon-btn del" title="Delete" onclick="deletePatient(${p.id})">🗑️</button>
+        </td>
+      </tr>`).join('');
+  }catch(e){
+    showMsg('Could not load patients — is patient-service running? ('+e.message+')', false);
+  }
+}
+
+form.addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const id = document.getElementById('patientId').value;
+  const payload = {
+    name: document.getElementById('name').value,
+    email: document.getElementById('email').value,
+    phone: document.getElementById('phone').value,
+    gender: document.getElementById('gender').value,
+    age: parseInt(document.getElementById('age').value),
+    address: document.getElementById('address').value
+  };
+  try{
+    const res = await fetch(id ? `${API}/${id}` : API, {
+      method: id ? 'PUT' : 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    if(!res.ok){
+      const err = await res.json().catch(()=>({message:res.statusText}));
+      throw new Error(err.message || 'Request failed');
+    }
+    showMsg(id ? 'Patient updated' : 'Patient added', true);
+    resetForm();
+    loadPatients();
+  }catch(e){ showMsg(e.message, false); }
+});
+
+function editPatient(p){
+  document.getElementById('patientId').value = p.id;
+  document.getElementById('name').value = p.name;
+  document.getElementById('email').value = p.email;
+  document.getElementById('phone').value = p.phone;
+  document.getElementById('gender').value = p.gender;
+  document.getElementById('age').value = p.age;
+  document.getElementById('address').value = p.address;
+  formTitle.textContent = 'Edit Patient #' + p.id;
+  submitBtn.textContent = 'Save Changes';
+  cancelEdit.style.display = 'block';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function resetForm(){
+  form.reset();
+  document.getElementById('patientId').value = '';
+  formTitle.textContent = 'Add Patient';
+  submitBtn.textContent = 'Add Patient';
+  cancelEdit.style.display = 'none';
+}
+cancelEdit.addEventListener('click', resetForm);
+
+async function deletePatient(id){
+  if(!confirm('Delete patient #'+id+'?')) return;
+  try{
+    const res = await fetch(`${API}/${id}`, {method:'DELETE'});
+    if(!res.ok) throw new Error('Delete failed');
+    showMsg('Patient deleted', true);
+    loadPatients();
+  }catch(e){ showMsg(e.message, false); }
+}
+
+loadPatients();
+</script>
+</body>
+</html>

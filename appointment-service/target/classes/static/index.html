@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MediFlow · Appointment Service</title>
+<style>
+  :root{--accent:#ea580c;--accent-dark:#c2410c;--accent-light:#fff7ed;--bg:#fffaf5;--text:#292018;--muted:#8a7a68;--card:#ffffff;--border:#fed7aa;}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);}
+  header{background:linear-gradient(135deg,var(--accent),var(--accent-dark));color:#fff;padding:22px 32px;display:flex;align-items:center;gap:14px;box-shadow:0 2px 10px rgba(234,88,12,.25);}
+  header .icon{font-size:32px;}
+  header h1{margin:0;font-size:22px;font-weight:600;}
+  header p{margin:2px 0 0;font-size:13px;opacity:.9;}
+  main{max-width:1200px;margin:0 auto;padding:28px 20px 60px;}
+  .grid{display:grid;grid-template-columns:340px 1fr;gap:24px;align-items:start;}
+  @media (max-width:860px){.grid{grid-template-columns:1fr;}}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+  .card h2{margin:0 0 16px;font-size:16px;color:var(--accent-dark);}
+  label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin:12px 0 4px;}
+  input,select,textarea{width:100%;padding:9px 10px;border:1px solid #fed7aa;border-radius:8px;font-size:14px;font-family:inherit;}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(234,88,12,.15);}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .btn{margin-top:18px;width:100%;padding:11px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;font-size:14px;cursor:pointer;}
+  .btn:hover{background:var(--accent-dark);}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{text-align:left;background:var(--accent-light);color:var(--accent-dark);padding:10px 12px;font-weight:600;}
+  td{padding:10px 12px;border-bottom:1px solid #fef1e6;vertical-align:top;}
+  tr:hover td{background:#fffdfa;}
+  .status-sel{padding:5px 8px;border-radius:6px;font-size:12px;font-weight:700;border:none;cursor:pointer;}
+  .SCHEDULED{background:#dbeafe;color:#1e40af;}
+  .CONFIRMED{background:#dcfce7;color:#166534;}
+  .COMPLETED{background:#ede9fe;color:#5b21b6;}
+  .CANCELLED{background:#fee2e2;color:#991b1b;}
+  .icon-btn{border:none;background:none;cursor:pointer;font-size:15px;padding:4px 6px;border-radius:6px;}
+  .icon-btn:hover{background:#fef1e6;}
+  .icon-btn.del:hover{background:#fee2e2;}
+  .empty{padding:30px;text-align:center;color:var(--muted);font-size:13px;}
+  .status-msg{margin-top:12px;font-size:13px;padding:10px 12px;border-radius:8px;display:none;}
+  .status-msg.err{background:#fee2e2;color:#991b1b;display:block;}
+  .status-msg.ok{background:#dcfce7;color:#166534;display:block;}
+  .table-wrap{overflow-x:auto;}
+  .count{color:var(--muted);font-size:12px;font-weight:500;}
+  .hint{font-size:11px;color:var(--muted);margin-top:4px;}
+</style>
+<script src="mediflow-nav.js"></script>
+</head>
+<body>
+<header>
+  <div class="icon">📅</div>
+  <div>
+    <h1>Appointment Service</h1>
+    <p>MediFlow · Appointment Scheduling Microservice · port 8083</p>
+  </div>
+</header>
+<main>
+  <div class="grid">
+    <div class="card">
+      <h2>Book Appointment</h2>
+      <form id="apptForm">
+        <label>Patient ID</label>
+        <input type="number" id="patientId" required placeholder="1">
+        <div class="hint">Look up IDs at localhost:8081/patients</div>
+        <label>Doctor ID</label>
+        <input type="number" id="doctorId" required placeholder="1">
+        <div class="hint">Look up IDs at localhost:8082/doctors</div>
+        <div class="row2">
+          <div>
+            <label>Date</label>
+            <input type="date" id="appointmentDate" required>
+          </div>
+          <div>
+            <label>Time</label>
+            <input type="time" id="appointmentTime" required>
+          </div>
+        </div>
+        <label>Reason for visit</label>
+        <textarea id="reason" rows="3" required placeholder="Routine checkup"></textarea>
+        <button type="submit" class="btn">Book Appointment</button>
+      </form>
+      <div class="status-msg" id="statusMsg"></div>
+    </div>
+
+    <div class="card">
+      <h2 style="display:flex;justify-content:space-between;align-items:center;">
+        <span>Appointments</span><span class="count" id="countLabel"></span>
+      </h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ID</th><th>Patient</th><th>Doctor</th><th>Date &amp; Time</th><th>Reason</th><th>Status</th><th></th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <div class="empty" id="emptyMsg" style="display:none">No appointments yet. Book one on the left.</div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+const API = '/appointments';
+const STATUSES = ['SCHEDULED','CONFIRMED','COMPLETED','CANCELLED'];
+const form = document.getElementById('apptForm');
+const rows = document.getElementById('rows');
+const statusMsg = document.getElementById('statusMsg');
+
+function showMsg(text, ok){
+  statusMsg.textContent = text;
+  statusMsg.className = 'status-msg ' + (ok ? 'ok' : 'err');
+  setTimeout(()=>{statusMsg.className='status-msg';}, 4000);
+}
+
+function statusOptions(current){
+  return STATUSES.map(s => `<option value="${s}" ${s===current?'selected':''}>${s}</option>`).join('');
+}
+
+async function loadAppointments(){
+  try{
+    const res = await fetch(API);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+    document.getElementById('countLabel').textContent = data.length + (data.length===1?' appointment':' appointments');
+    document.getElementById('emptyMsg').style.display = data.length ? 'none':'block';
+    rows.innerHTML = data.map(a => `
+      <tr>
+        <td>${a.id}</td>
+        <td><strong>${a.patientName||'#'+a.patientId}</strong></td>
+        <td>${a.doctorName||'#'+a.doctorId}<br><span style="color:#8a7a68">${a.doctorSpecialization||''}</span></td>
+        <td>${a.appointmentDate}<br>${a.appointmentTime}</td>
+        <td style="max-width:200px">${a.reason}</td>
+        <td>
+          <select class="status-sel ${a.status}" onchange="updateStatus(${a.id}, this.value, this)">
+            ${statusOptions(a.status)}
+          </select>
+        </td>
+        <td><button class="icon-btn del" title="Delete" onclick="deleteAppt(${a.id})">🗑️</button></td>
+      </tr>`).join('');
+  }catch(e){
+    showMsg('Could not load appointments — is appointment-service running? ('+e.message+')', false);
+  }
+}
+
+form.addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const payload = {
+    patientId: parseInt(document.getElementById('patientId').value),
+    doctorId: parseInt(document.getElementById('doctorId').value),
+    appointmentDate: document.getElementById('appointmentDate').value,
+    appointmentTime: document.getElementById('appointmentTime').value,
+    reason: document.getElementById('reason').value
+  };
+  try{
+    const res = await fetch(API, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    if(!res.ok){
+      const err = await res.json().catch(()=>({message:res.statusText}));
+      throw new Error(err.message || 'Booking failed');
+    }
+    showMsg('Appointment booked', true);
+    form.reset();
+    loadAppointments();
+  }catch(e){ showMsg(e.message, false); }
+});
+
+async function updateStatus(id, status, selectEl){
+  try{
+    const res = await fetch(`${API}/${id}/status`, {
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({status})
+    });
+    if(!res.ok) throw new Error('Status update failed');
+    selectEl.className = 'status-sel ' + status;
+    showMsg('Status updated to ' + status, true);
+  }catch(e){ showMsg(e.message, false); loadAppointments(); }
+}
+
+async function deleteAppt(id){
+  if(!confirm('Delete appointment #'+id+'?')) return;
+  try{
+    const res = await fetch(`${API}/${id}`, {method:'DELETE'});
+    if(!res.ok) throw new Error('Delete failed');
+    showMsg('Appointment deleted', true);
+    loadAppointments();
+  }catch(e){ showMsg(e.message, false); }
+}
+
+loadAppointments();
+</script>
+</body>
+</html>
